@@ -2,11 +2,19 @@ package com.glisco.deathlog.death_info.properties;
 
 import com.glisco.deathlog.death_info.DeathInfoProperty;
 import com.glisco.deathlog.death_info.DeathInfoPropertyType;
-import net.minecraft.nbt.NbtCompound;
+import io.wispforest.endec.StructEndec;
+import io.wispforest.endec.impl.StructEndecBuilder;
+import io.wispforest.owo.serialization.endec.MinecraftEndecs;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 public class CoordinatesProperty implements DeathInfoProperty {
+
+    private static final StructEndec<CoordinatesProperty> ENDEC = StructEndecBuilder.of(
+            MinecraftEndecs.BLOCK_POS.fieldOf("coordinates", s -> s.coordinates),
+            CoordinatesProperty::new
+    );
 
     private final BlockPos coordinates;
 
@@ -25,11 +33,6 @@ public class CoordinatesProperty implements DeathInfoProperty {
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt) {
-        nbt.putLong("Coordinates", coordinates.asLong());
-    }
-
-    @Override
     public String toSearchableString() {
         return coordinates.getX() + " " + coordinates.getY() + " " + coordinates.getZ();
     }
@@ -39,7 +42,7 @@ public class CoordinatesProperty implements DeathInfoProperty {
         public static final Type INSTANCE = new Type();
 
         private Type() {
-            super("deathlog.deathinfoproperty.coordinates", "coordinates");
+            super("deathlog.deathinfoproperty.coordinates", Identifier.of("deathlog", "coordinates"));
         }
 
         @Override
@@ -48,9 +51,8 @@ public class CoordinatesProperty implements DeathInfoProperty {
         }
 
         @Override
-        public CoordinatesProperty readFromNbt(NbtCompound nbt) {
-            BlockPos location = BlockPos.fromLong(nbt.getLong("Coordinates"));
-            return new CoordinatesProperty(location);
+        public StructEndec<CoordinatesProperty> endec() {
+            return CoordinatesProperty.ENDEC;
         }
     }
 }

@@ -2,8 +2,14 @@ package com.glisco.deathlog.death_info.properties;
 
 import com.glisco.deathlog.death_info.DeathInfoProperty;
 import com.glisco.deathlog.death_info.DeathInfoPropertyType;
+import io.wispforest.endec.Deserializer;
+import io.wispforest.endec.SerializationContext;
+import io.wispforest.endec.Serializer;
+import io.wispforest.endec.StructEndec;
+import io.wispforest.owo.serialization.format.nbt.NbtEndec;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 public class MissingDeathInfoProperty implements DeathInfoProperty {
 
@@ -26,18 +32,27 @@ public class MissingDeathInfoProperty implements DeathInfoProperty {
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt) {
-        nbt.copyFrom(this.data);
-    }
-
-    @Override
     public String toSearchableString() {
         return null;
     }
 
     public static class Type extends DeathInfoPropertyType<MissingDeathInfoProperty> {
 
-        public Type(String id) {
+        private final StructEndec<MissingDeathInfoProperty> endec = new StructEndec<>() {
+            @Override
+            public void encodeStruct(SerializationContext ctx, Serializer<?> serializer, Serializer.Struct struct, MissingDeathInfoProperty value) {
+                for (String key : value.data.getKeys()) {
+                    struct.field(key, ctx, NbtEndec.ELEMENT, value.data.get(key));
+                }
+            }
+
+            @Override
+            public MissingDeathInfoProperty decodeStruct(SerializationContext ctx, Deserializer<?> deserializer, Deserializer.Struct struct) {
+                return new MissingDeathInfoProperty(Type.this, NbtEndec.COMPOUND.decode(ctx, deserializer));
+            }
+        };
+
+        public Type(Identifier id) {
             super(null, id);
         }
 
@@ -47,8 +62,8 @@ public class MissingDeathInfoProperty implements DeathInfoProperty {
         }
 
         @Override
-        public MissingDeathInfoProperty readFromNbt(NbtCompound nbt) {
-            return new MissingDeathInfoProperty(this, nbt);
+        public StructEndec<MissingDeathInfoProperty> endec() {
+            return this.endec;
         }
     }
 

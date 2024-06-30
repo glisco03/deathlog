@@ -134,7 +134,7 @@
 
     <templates>
         <death-list-entry>
-            <death-list-entry-container>
+            <deathlog.death-list-entry-container>
                 <children>
                     <flow-layout direction="vertical">
                         <children>
@@ -161,7 +161,7 @@
                     <vertical method="fixed">30</vertical>
                     <horizontal method="fill">100</horizontal>
                 </sizing>
-            </death-list-entry-container>
+            </deathlog.death-list-entry-container>
         </death-list-entry>
     </templates>
 </owo-ui>

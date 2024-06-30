@@ -3,16 +3,15 @@ package com.glisco.deathlog.client;
 import com.glisco.deathlog.DeathLogCommon;
 import com.glisco.deathlog.client.gui.DeathLogScreen;
 import com.glisco.deathlog.network.DeathLogPackets;
-import com.glisco.deathlog.storage.BaseDeathLogStorage;
 import com.glisco.deathlog.storage.DirectDeathLogStorage;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.StatsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -20,34 +19,25 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
-import java.nio.file.Files;
-
 @Environment(EnvType.CLIENT)
 public class DeathLogClient implements ClientModInitializer {
 
-    public static final com.glisco.deathlog.client.DeathLogConfig CONFIG;
-
-    static {
-        var configDir = FabricLoader.getInstance().getConfigDir();
-        if (Files.exists(configDir.resolve("deathlog.json")) && !Files.exists(configDir.resolve("deathlog.json5"))) {
-            if (configDir.resolve("deathlog.json").toFile().renameTo(configDir.resolve("deathlog.json5").toFile())) {
-                BaseDeathLogStorage.LOGGER.info("Migrated old '.json' config to '.json5'");
-            } else {
-                BaseDeathLogStorage.LOGGER.warn("Could not migrate old config file");
-            }
-        }
-
-        CONFIG = com.glisco.deathlog.client.DeathLogConfig.createAndLoad();
-    }
+    public static final com.glisco.deathlog.client.DeathLogConfig CONFIG = com.glisco.deathlog.client.DeathLogConfig.createAndLoad();
 
     public static final KeyBinding OPEN_DEATH_SCREEN = new KeyBinding("key.deathlog.death_screen", GLFW.GLFW_KEY_END, "key.categories.misc");
     private static ClientDeathLogStorage storage;
 
     @Override
     public void onInitializeClient() {
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            storage = new ClientDeathLogStorage(client);
+            DeathLogCommon.setStorage(storage);
+        });
 
-        storage = new ClientDeathLogStorage();
-        DeathLogCommon.setStorage(storage);
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            storage = null;
+            DeathLogCommon.setStorage(null);
+        });
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof StatsScreen)) return;
@@ -63,7 +53,7 @@ public class DeathLogClient implements ClientModInitializer {
             }
         });
 
-        DeathLogPackets.Client.registerListeners();
+        DeathLogPackets.initClient();
     }
 
     private void openScreen(DirectDeathLogStorage clientStorage) {

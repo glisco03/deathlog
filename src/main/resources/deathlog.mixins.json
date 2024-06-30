@@ -6,8 +6,7 @@
   "client": [
     "ClientPlayNetworkHandlerMixin",
     "MinecraftServerAccessor",
-    "SystemToastAccessor",
-    "TitleScreenMixin"
+    "SystemToastAccessor"
   ],
   "server": [
     "ServerPlayerEntityMixin"

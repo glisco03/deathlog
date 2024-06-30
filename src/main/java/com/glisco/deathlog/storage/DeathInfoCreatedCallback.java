@@ -13,5 +13,4 @@ public interface DeathInfoCreatedCallback {
     });
 
     void event(DeathInfo info);
-
 }

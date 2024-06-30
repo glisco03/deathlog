@@ -6,157 +6,119 @@ import com.glisco.deathlog.client.DeathLogClient;
 import com.glisco.deathlog.client.gui.DeathLogScreen;
 import com.glisco.deathlog.server.DeathLogServer;
 import com.glisco.deathlog.storage.BaseDeathLogStorage;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
+import io.wispforest.endec.Endec;
+import io.wispforest.endec.SerializationContext;
+import io.wispforest.endec.StructEndec;
+import io.wispforest.endec.format.edm.EdmDeserializer;
+import io.wispforest.endec.format.edm.EdmSerializer;
+import io.wispforest.endec.impl.BuiltInEndecs;
+import io.wispforest.endec.impl.StructEndecBuilder;
+import io.wispforest.owo.network.OwoNetChannel;
+import io.wispforest.owo.serialization.RegistriesAttribute;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.util.Identifier;
 
+import java.util.List;
 import java.util.UUID;
 
 public class DeathLogPackets {
 
-    public static class Client {
+    public static final OwoNetChannel CHANNEL = OwoNetChannel.create(Identifier.of("deathlog", "channel"));
 
-        public static final Identifier REQUEST_DELETION_ID = new Identifier("deathlog", "request_deletion");
-        public static final Identifier REQUEST_RESTORE_ID = new Identifier("deathlog", "request_restore");
-        public static final Identifier FETCH_INFO_ID = new Identifier("deathlog", "fetch_info");
+    public static void init() {
+        CHANNEL.builder().register(DeathInfo.ENDEC, DeathInfo.class);
 
-        public static void registerListeners() {
-            ClientPlayNetworking.registerGlobalReceiver(Server.OPEN_SCREEN_ID, Client::handleOpenScreen);
-            ClientPlayNetworking.registerGlobalReceiver(Server.SEND_INFO_ID, Client::receiveInfo);
-        }
+        CHANNEL.registerClientboundDeferred(OpenScreen.class, OpenScreen.ENDEC);
+        CHANNEL.registerClientboundDeferred(DeathInfoData.class);
 
-        private static void receiveInfo(MinecraftClient client, ClientPlayNetworkHandler clientPlayNetworkHandler, PacketByteBuf byteBuf, PacketSender packetSender) {
-            var index = byteBuf.readVarInt();
-            var info = DeathInfo.read(byteBuf);
+        CHANNEL.registerServerbound(InfoRequest.class, (message, access) -> {
+            if (!DeathLogServer.hasPermission(access.player(), "deathlog.view")) {
+                BaseDeathLogStorage.LOGGER.warn("Received unauthorized info request from {}", access.player().getName().getString());
+                return;
+            }
 
-            client.execute(() -> {
-                if (!(client.currentScreen instanceof DeathLogScreen screen)) {
-                    BaseDeathLogStorage.LOGGER.warn("Received invalid death info packet");
-                    return;
-                }
+            CHANNEL.serverHandle(access.player()).send(new DeathInfoData(
+                    message.index,
+                    DeathLogCommon.getStorage().getDeathInfoList(message.profile).get(message.index)
+            ));
+        });
 
-                screen.updateInfo(info, index);
-            });
-        }
+        CHANNEL.registerServerbound(RestoreRequest.class, (message, access) -> {
+            if (!DeathLogServer.hasPermission(access.player(), "deathlog.restore")) {
+                BaseDeathLogStorage.LOGGER.warn("Received unauthorized restore packet from {}", access.player().getName().getString());
+                return;
+            }
 
-        private static void handleOpenScreen(MinecraftClient minecraftClient, ClientPlayNetworkHandler clientPlayNetworkHandler, PacketByteBuf packetByteBuf, PacketSender packetSender) {
-            var storage = RemoteDeathLogStorage.read(packetByteBuf);
-            var canRestore = packetByteBuf.readBoolean();
-            minecraftClient.execute(() -> DeathLogClient.openScreen(storage, canRestore));
-        }
+            var targetPlayer = access.runtime().getPlayerManager().getPlayer(message.profile);
+            if (targetPlayer == null) {
+                BaseDeathLogStorage.LOGGER.warn("Received restore packet for invalid player");
+                return;
+            }
 
-        public static void requestDeletion(UUID profile, int index) {
-            var buffer = PacketByteBufs.create();
-            buffer.writeUuid(profile);
-            buffer.writeVarInt(index);
-            ClientPlayNetworking.send(REQUEST_DELETION_ID, buffer);
-        }
+            final var infoList = DeathLogCommon.getStorage().getDeathInfoList(message.profile);
+            if (message.index > infoList.size() - 1) {
+                BaseDeathLogStorage.LOGGER.warn("Received restore packet with invalid index from '{}'", access.player().getName().getString());
+                return;
+            }
 
-        public static void requestRestore(UUID profile, int index) {
-            var buffer = PacketByteBufs.create();
-            buffer.writeUuid(profile);
-            buffer.writeVarInt(index);
-            ClientPlayNetworking.send(REQUEST_RESTORE_ID, buffer);
-        }
+            var info = DeathInfo.ENDEC.decodeFully(
+                    SerializationContext.attributes(RegistriesAttribute.of(access.runtime().getRegistryManager())),
+                    EdmDeserializer::of,
+                    DeathInfo.ENDEC.encodeFully(
+                            SerializationContext.attributes(RegistriesAttribute.of(DeathLogCommon.getStorage().registries())),
+                            EdmSerializer::of,
+                            infoList.get(message.index)
+                    )
+            );
 
-        public static void fetchInfo(UUID profile, int index) {
-            var buffer = PacketByteBufs.create();
-            buffer.writeUuid(profile);
-            buffer.writeVarInt(index);
-            ClientPlayNetworking.send(FETCH_INFO_ID, buffer);
-        }
+            info.restore(targetPlayer);
+        });
 
+        CHANNEL.registerServerbound(DeletionRequest.class, (message, access) -> {
+            if (FabricLoader.getInstance().getEnvironmentType() != EnvType.SERVER) return;
+
+            if (!DeathLogServer.hasPermission(access.player(), "deathlog.delete")) {
+                BaseDeathLogStorage.LOGGER.warn("Received unauthorized delete packet from {}", access.player().getName().getString());
+                return;
+            }
+
+            DeathLogServer.getStorage().delete(DeathLogServer.getStorage().getDeathInfoList(message.profile).get(message.index), message.profile);
+        });
     }
 
-    public static class Server {
+    @Environment(EnvType.CLIENT)
+    public static void initClient() {
+        CHANNEL.registerClientbound(OpenScreen.class, OpenScreen.ENDEC, (message, access) -> {
+            var storage = new RemoteDeathLogStorage(message.partialInfos, message.profile);
+            DeathLogClient.openScreen(storage, message.canRestore);
+        });
 
-        public static final Identifier OPEN_SCREEN_ID = new Identifier("deathlog", "open_screen");
-        public static final Identifier SEND_INFO_ID = new Identifier("deathlog", "send_info");
+        CHANNEL.registerClientbound(DeathInfoData.class, (message, access) -> {
+            if (!(access.runtime().currentScreen instanceof DeathLogScreen screen)) {
+                BaseDeathLogStorage.LOGGER.warn("Received invalid death info packet");
+                return;
+            }
 
-        public static void registerDedicatedListeners() {
-            ServerPlayNetworking.registerGlobalReceiver(Client.REQUEST_DELETION_ID, Server::handleDelete);
-        }
+            screen.updateInfo(message.info, message.infoIdx);
+        });
+    }
 
-        public static void registerCommonListeners() {
-            ServerPlayNetworking.registerGlobalReceiver(Client.REQUEST_RESTORE_ID, Server::handleRestore);
-            ServerPlayNetworking.registerGlobalReceiver(Client.FETCH_INFO_ID, Server::sendInfo);
-        }
+    public record DeletionRequest(UUID profile, int index) {}
 
-        private static void sendInfo(MinecraftServer minecraftServer, ServerPlayerEntity player, ServerPlayNetworkHandler serverPlayNetworkHandler, PacketByteBuf byteBuf, PacketSender packetSender) {
-            var profileId = byteBuf.readUuid();
-            var index = byteBuf.readVarInt();
+    public record RestoreRequest(UUID profile, int index) {}
 
-            minecraftServer.execute(() -> {
-                if (!DeathLogServer.hasPermission(player, "deathlog.view")) {
-                    BaseDeathLogStorage.LOGGER.warn("Received unauthorized info request from {}", player.getName().getString());
-                    return;
-                }
+    public record InfoRequest(UUID profile, int index) {}
 
-                var info = DeathLogCommon.getStorage().getDeathInfoList(profileId).get(index);
-                var buffer = PacketByteBufs.create();
-                buffer.writeVarInt(index);
-                info.write(buffer);
-                ServerPlayNetworking.send(player, SEND_INFO_ID, buffer);
-            });
-        }
+    public record DeathInfoData(int infoIdx, DeathInfo info) {}
 
-        private static void handleRestore(MinecraftServer minecraftServer, ServerPlayerEntity player, ServerPlayNetworkHandler serverPlayNetworkHandler, PacketByteBuf byteBuf, PacketSender packetSender) {
-            var profileId = byteBuf.readUuid();
-            var index = byteBuf.readVarInt();
-
-            minecraftServer.execute(() -> {
-                if (!DeathLogServer.hasPermission(player, "deathlog.restore")) {
-                    BaseDeathLogStorage.LOGGER.warn("Received unauthorized restore packet from {}", player.getName().getString());
-                    return;
-                }
-
-                var targetPlayer = minecraftServer.getPlayerManager().getPlayer(profileId);
-                if (targetPlayer == null) {
-                    BaseDeathLogStorage.LOGGER.warn("Received restore packet for invalid player");
-                    return;
-                }
-
-                final var infoList = DeathLogCommon.getStorage().getDeathInfoList(profileId);
-                if (index > infoList.size() - 1) {
-                    BaseDeathLogStorage.LOGGER.warn("Received restore packet with invalid index from '{}'", player.getName().getString());
-                    return;
-                }
-
-                infoList.get(index).restore(targetPlayer);
-            });
-        }
-
-        private static void handleDelete(MinecraftServer minecraftServer, ServerPlayerEntity player, ServerPlayNetworkHandler serverPlayNetworkHandler, PacketByteBuf byteBuf, PacketSender packetSender) {
-            var profileId = byteBuf.readUuid();
-            var index = byteBuf.readVarInt();
-
-            minecraftServer.execute(() -> {
-                if (!DeathLogServer.hasPermission(player, "deathlog.delete")) {
-                    BaseDeathLogStorage.LOGGER.warn("Received unauthorized delete packet from {}", player.getName().getString());
-                    return;
-                }
-
-                DeathLogServer.getStorage().delete(DeathLogServer.getStorage().getDeathInfoList(profileId).get(index), profileId);
-            });
-        }
-
-        public static void openScreen(UUID profileId, ServerPlayerEntity target) {
-            var buffer = PacketByteBufs.create();
-            var infos = DeathLogServer.getStorage().getDeathInfoList(profileId);
-
-            buffer.writeCollection(infos, (packetByteBuf, info) -> info.writePartial(packetByteBuf));
-            buffer.writeUuid(profileId);
-            buffer.writeBoolean(target.getServer().getPlayerManager().getPlayer(profileId) != null);
-
-            ServerPlayNetworking.send(target, OPEN_SCREEN_ID, buffer);
-        }
+    public record OpenScreen(UUID profile, boolean canRestore, List<DeathInfo> partialInfos) {
+        public static final StructEndec<OpenScreen> ENDEC = StructEndecBuilder.of(
+                BuiltInEndecs.UUID.fieldOf("profile", OpenScreen::profile),
+                Endec.BOOLEAN.fieldOf("can_restore", OpenScreen::canRestore),
+                DeathInfo.PARTIAL_ENDEC.listOf().fieldOf("partial_infos", OpenScreen::partialInfos),
+                OpenScreen::new
+        );
     }
 }

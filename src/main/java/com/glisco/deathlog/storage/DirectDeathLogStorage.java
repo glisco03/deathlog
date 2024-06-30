@@ -17,7 +17,4 @@ public interface DirectDeathLogStorage extends DeathLogStorage {
     default void restore(int index) {
         restore(index, null);
     }
-
-    String getDefaultFilter();
-
 }

@@ -2,10 +2,19 @@ package com.glisco.deathlog.death_info.properties;
 
 import com.glisco.deathlog.death_info.DeathInfoProperty;
 import com.glisco.deathlog.death_info.DeathInfoPropertyType;
-import net.minecraft.nbt.NbtCompound;
+import io.wispforest.endec.Endec;
+import io.wispforest.endec.StructEndec;
+import io.wispforest.endec.impl.StructEndecBuilder;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 public class StringProperty implements DeathInfoProperty {
+
+    private static final StructEndec<StringProperty> ENDEC = StructEndecBuilder.of(
+            Endec.STRING.fieldOf("translation_key", s -> s.translationKey),
+            Endec.STRING.fieldOf("data", s -> s.data),
+            StringProperty::new
+    );
 
     private final String translationKey;
     private final String data;
@@ -26,12 +35,6 @@ public class StringProperty implements DeathInfoProperty {
     }
 
     @Override
-    public void writeNbt(NbtCompound nbt) {
-        nbt.putString("TranslationKey", translationKey);
-        nbt.putString("Data", data);
-    }
-
-    @Override
     public String toSearchableString() {
         return data;
     }
@@ -45,7 +48,9 @@ public class StringProperty implements DeathInfoProperty {
 
         public static final Type INSTANCE = new Type();
 
-        private Type() {super("deathlog.deathinfoproperty.string", "string");}
+        private Type() {
+            super("deathlog.deathinfoproperty.string", Identifier.of("deathlog", "string"));
+        }
 
         @Override
         public boolean displayedInInfoView() {
@@ -53,11 +58,8 @@ public class StringProperty implements DeathInfoProperty {
         }
 
         @Override
-        public StringProperty readFromNbt(NbtCompound nbt) {
-            String key = nbt.getString("TranslationKey");
-            String data = nbt.getString("Data");
-
-            return new StringProperty(key, data);
+        public StructEndec<StringProperty> endec() {
+            return StringProperty.ENDEC;
         }
     }
 }

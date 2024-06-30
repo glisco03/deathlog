@@ -16,8 +16,11 @@ import io.wispforest.owo.ui.core.Surface;
 import io.wispforest.owo.ui.parsing.UIParsing;
 import io.wispforest.owo.util.Observable;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.item.TooltipContext;
+import net.minecraft.component.Component;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -25,6 +28,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
 
@@ -37,7 +42,7 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
     private boolean canRestore = true;
 
     public DeathLogScreen(Screen parent, DirectDeathLogStorage storage) {
-        super(FlowLayout.class, DataSource.asset(new Identifier("deathlog", "deathlog")));
+        super(FlowLayout.class, DataSource.asset(Identifier.of("deathlog", "deathlog")));
         this.parent = parent;
         this.storage = storage;
 
@@ -69,7 +74,6 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
             searchBox.onChanged().subscribe(value -> {
                 this.currentSearchTerm.set(value.toLowerCase(Locale.ROOT));
             });
-            searchBox.text(this.storage.getDefaultFilter());
         });
 
         rootComponent.childById(ButtonComponent.class, "config-button").onPress(button -> {
@@ -79,6 +83,8 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
         this.uiAdapter.rootComponent.childById(LabelComponent.class, "death-count-label").text(
                 Text.translatable("text.deathlog.death_list_title", this.storage.getDeathInfoList().size())
         );
+
+        this.buildDeathList();
     }
 
     public void updateInfo(DeathInfo info, int index) {
@@ -182,7 +188,7 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
             panel.child(itemContainer = Containers.verticalFlow(Sizing.content(), Sizing.content()));
             itemContainer.margins(Insets.top(5));
 
-            itemContainer.child(Components.texture(new Identifier("deathlog", "textures/gui/inventory_overlay.png"), 0, 0, 210, 107));
+            itemContainer.child(Components.texture(Identifier.of("deathlog", "textures/gui/inventory_overlay.png"), 0, 0, 210, 107));
 
             FlowLayout armorFlow;
             itemContainer.child(armorFlow = Containers.verticalFlow(Sizing.content(), Sizing.content()));
@@ -217,7 +223,7 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
         item.margins(margins);
 
         if (!stack.isEmpty()) {
-            var tooltip = stack.getTooltip(client.player, client.options.advancedItemTooltips ? TooltipContext.Default.ADVANCED : TooltipContext.Default.BASIC);
+            var tooltip = stack.getTooltip(Item.TooltipContext.DEFAULT, client.player, client.options.advancedItemTooltips ? TooltipType.ADVANCED : TooltipType.BASIC);
             tooltip.add(Text.translatable(this.client.player.isCreative() ? "text.deathlog.action.give_item.spawn" : "text.deathlog.action.give_item.copy_give"));
             item.tooltip(tooltip);
 
@@ -227,11 +233,32 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
                 if (this.client.player.isCreative()) {
                     this.client.interactionManager.dropCreativeStack(stack);
                 } else {
-
-                    String command = "/give " + client.player.getName().getString() +
+                    var command = "/give " + client.player.getName().getString() +
                             " " +
-                            Registries.ITEM.getId(stack.getItem()) +
-                            stack.getOrCreateNbt().toString();
+                            Registries.ITEM.getId(stack.getItem());
+
+                    var ops = storage.registries().getOps(NbtOps.INSTANCE);
+                    var components = stack.getComponentChanges().entrySet().stream().flatMap(entry -> {
+                        var componentType = entry.getKey();
+                        var typeId = Registries.DATA_COMPONENT_TYPE.getId(componentType);
+                        if (typeId == null) return Stream.empty();
+
+                        var componentOptional = entry.getValue();
+                        if (componentOptional.isPresent()) {
+                            Component<?> component = Component.of(componentType, componentOptional.get());
+                            return component.encode(ops).result().stream().map(value -> typeId + "=" + value);
+                        } else {
+                            return Stream.of("!" + typeId);
+                        }
+                    }).collect(Collectors.joining(String.valueOf(',')));
+
+                    if (!components.isEmpty()) {
+                        command += "[" + components + "]";
+                    }
+
+                    if (stack.getCount() > 1) {
+                        command += " " + stack.getCount();
+                    }
 
                     this.client.keyboard.setClipboard(command);
                 }
@@ -249,6 +276,6 @@ public class DeathLogScreen extends BaseUIModelScreen<FlowLayout> {
     }
 
     static {
-        UIParsing.registerFactory("death-list-entry-container", element -> new DeathListEntryContainer());
+        UIParsing.registerFactory(Identifier.of("deathlog", "death-list-entry-container"), element -> new DeathListEntryContainer());
     }
 }

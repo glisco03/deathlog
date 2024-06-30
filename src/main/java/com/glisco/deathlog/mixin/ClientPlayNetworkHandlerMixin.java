@@ -30,7 +30,7 @@ public abstract class ClientPlayNetworkHandlerMixin extends ClientCommonNetworkH
     @Inject(method = "onDeathMessage", at = @At("HEAD"))
     private void onClientDeath(DeathMessageS2CPacket packet, CallbackInfo ci) {
         if (!RenderSystem.isOnRenderThread()) return;
-        DeathLogClient.getClientStorage().store(packet.getMessage(), this.client.player);
+        DeathLogClient.getClientStorage().store(packet.message(), this.client.player);
 
         if (DeathLogClient.CONFIG.screenshotsEnabled()) {
             ScreenshotRecorder.saveScreenshot(FabricLoader.getInstance().getGameDir().toFile(), this.client.getFramebuffer(), text -> {

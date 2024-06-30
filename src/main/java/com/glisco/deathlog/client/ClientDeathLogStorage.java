@@ -1,5 +1,6 @@
 package com.glisco.deathlog.client;
 
+import com.glisco.deathlog.client.gui.DeathLogToast;
 import com.glisco.deathlog.death_info.SpecialPropertyProvider;
 import com.glisco.deathlog.death_info.properties.*;
 import com.glisco.deathlog.mixin.MinecraftServerAccessor;
@@ -9,11 +10,14 @@ import com.glisco.deathlog.storage.DeathInfoCreatedCallback;
 import com.glisco.deathlog.storage.DirectDeathLogStorage;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.toast.SystemToast;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -23,9 +27,23 @@ public class ClientDeathLogStorage extends BaseDeathLogStorage implements Direct
     private final List<DeathInfo> deathInfos;
     private final File deathLogFile;
 
-    public ClientDeathLogStorage() {
-        this.deathLogFile = FabricLoader.getInstance().getGameDir().resolve("deaths.dat").toFile();
-        this.deathInfos = load(deathLogFile).join();
+    public ClientDeathLogStorage(MinecraftClient client) {
+        super(client.world.getRegistryManager());
+        var worldSuffix = DigestUtils.sha1Hex(
+                client.isInSingleplayer()
+                        ? ((MinecraftServerAccessor) client.getServer()).deathlog_getSession().getDirectoryName()
+                        : client.getCurrentServerEntry().name
+        ).substring(0, 10);
+
+        this.deathLogFile = FabricLoader.getInstance().getGameDir().resolve("deathlog").resolve("deaths_" + worldSuffix + ".dat").toFile();
+        this.deathInfos = load(client.world.getRegistryManager(), deathLogFile).join();
+
+        var deathLogDir = FabricLoader.getInstance().getGameDir().resolve("deathlog").toAbsolutePath();
+
+        if (!Files.exists(deathLogDir) && !deathLogDir.toFile().mkdir()) {
+            raiseError("Failed to create directory");
+            LOGGER.error("Failed to create DeathLog storage directory, further disk operations have been disabled");
+        }
     }
 
     @Override
@@ -36,7 +54,7 @@ public class ClientDeathLogStorage extends BaseDeathLogStorage implements Direct
     @Override
     public void delete(DeathInfo info, @Nullable UUID profile) {
         deathInfos.remove(info);
-        save(deathLogFile, deathInfos);
+        save(MinecraftClient.getInstance().world.getRegistryManager(), deathLogFile, deathInfos);
     }
 
     @Override
@@ -63,23 +81,22 @@ public class ClientDeathLogStorage extends BaseDeathLogStorage implements Direct
         DeathInfoCreatedCallback.EVENT.invoker().event(deathInfo);
 
         deathInfos.add(deathInfo);
-        save(deathLogFile, deathInfos);
+        save(MinecraftClient.getInstance().world.getRegistryManager(), deathLogFile, deathInfos);
     }
 
     @Override
     public void restore(int index, @Nullable UUID profile) {
-        DeathLogPackets.Client.requestRestore(MinecraftClient.getInstance().player.getUuid(), index);
+        DeathLogPackets.CHANNEL.clientHandle().send(new DeathLogPackets.RestoreRequest(
+                MinecraftClient.getInstance().player.getUuid(),
+                index
+        ));
     }
 
     @Override
-    public String getDefaultFilter() {
-        var client = MinecraftClient.getInstance();
-        if (client.getCurrentServerEntry() != null) {
-            return client.getCurrentServerEntry().name;
-        } else if (client.isInSingleplayer()) {
-            return ((MinecraftServerAccessor) client.getServer()).deathlog_getSession().getDirectoryName();
-        }
+    protected void raiseError(String error) {
+        super.raiseError(error);
 
-        return "";
+        MinecraftClient.getInstance().getToastManager().add(new DeathLogToast(SystemToast.Type.PACK_LOAD_FAILURE, Text.of("DeathLog Database Error"), Text.of(error)));
+        MinecraftClient.getInstance().getToastManager().add(new DeathLogToast(SystemToast.Type.PACK_LOAD_FAILURE, Text.of("DeathLog Problem"), Text.of("Check your log for details")));
     }
 }
