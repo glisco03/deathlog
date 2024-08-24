@@ -78,7 +78,7 @@ public class TrinketComponentProperty implements RestorableDeathInfoProperty {
         public static final Type INSTANCE = new Type();
 
         private Type() {
-            super("deathlog.deathinfoproperty.trinket_component", Identifier.of("deathlog", "trinket_component"));
+            super("deathlog.deathinfoproperty.trinket_component", Identifier.of("deathlog", "trinkets"));
         }
 
         @Override
