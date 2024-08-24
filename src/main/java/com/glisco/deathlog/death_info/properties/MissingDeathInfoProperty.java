@@ -2,10 +2,7 @@ package com.glisco.deathlog.death_info.properties;
 
 import com.glisco.deathlog.death_info.DeathInfoProperty;
 import com.glisco.deathlog.death_info.DeathInfoPropertyType;
-import io.wispforest.endec.Deserializer;
-import io.wispforest.endec.SerializationContext;
-import io.wispforest.endec.Serializer;
-import io.wispforest.endec.StructEndec;
+import io.wispforest.endec.*;
 import io.wispforest.owo.serialization.format.nbt.NbtEndec;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
@@ -41,14 +38,27 @@ public class MissingDeathInfoProperty implements DeathInfoProperty {
         private final StructEndec<MissingDeathInfoProperty> endec = new StructEndec<>() {
             @Override
             public void encodeStruct(SerializationContext ctx, Serializer<?> serializer, Serializer.Struct struct, MissingDeathInfoProperty value) {
-                for (String key : value.data.getKeys()) {
-                    struct.field(key, ctx, NbtEndec.ELEMENT, value.data.get(key));
+                if (serializer instanceof SelfDescribedSerializer<?>) {
+                    for (String key : value.data.getKeys()) {
+                        struct.field(key, ctx, NbtEndec.ELEMENT, value.data.get(key));
+                    }
+                } else {
+                    NbtEndec.COMPOUND.encode(ctx, serializer, value.data);
                 }
             }
 
             @Override
             public MissingDeathInfoProperty decodeStruct(SerializationContext ctx, Deserializer<?> deserializer, Deserializer.Struct struct) {
-                return new MissingDeathInfoProperty(Type.this, NbtEndec.COMPOUND.decode(ctx, deserializer));
+                if (deserializer instanceof SelfDescribedDeserializer<?>) {
+                    var map = NbtEndec.ELEMENT.mapOf().decode(ctx, deserializer);
+
+                    var compound = new NbtCompound();
+                    map.forEach(compound::put);
+
+                    return new MissingDeathInfoProperty(Type.this, compound);
+                } else {
+                    return new MissingDeathInfoProperty(Type.this, NbtEndec.COMPOUND.decode(ctx, deserializer));
+                }
             }
         };
 
