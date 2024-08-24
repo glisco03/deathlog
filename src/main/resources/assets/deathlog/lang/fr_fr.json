@@ -1,0 +1,60 @@
+{
+  "deathlog.deathinfoproperty.coordinates": "Coordonnees",
+  "deathlog.deathinfoproperty.coordinates.value": [
+    {"index": 0, "color": "red"},
+    " ",
+    {"index": 1, "color": "green"},
+    " ",
+    {"index": 2, "color": "aqua"}
+  ],
+  "deathlog.deathinfoproperty.dimension": "Dimension",
+  "deathlog.deathinfoproperty.location.singleplayer": "Jeu solo",
+  "deathlog.deathinfoproperty.location.multiplayer": "Multijoueurs",
+  "deathlog.deathinfoproperty.location": "Localisation",
+  "deathlog.deathinfoproperty.location.value": [
+    {"index": 0},
+    {"text": " (", "color": "gray"},
+    {"index": 1, "color": "gray"},
+    {"text": ")", "color": "gray"}
+  ],
+  "deathlog.deathinfoproperty.score": "Score",
+  "deathlog.deathinfoproperty.score.value": [
+    {"index": 0},
+    {"text": " (", "color": "gray"},
+    {"index": 1, "color": "gray"},
+    {"text": " levels, ", "color": "gray"},
+    {"index": 2, "color": "gray"},
+    {"text": " xp)", "color": "gray"}
+  ],
+  "deathlog.deathinfoproperty.death_message": "Message de la mort",
+  "deathlog.deathinfoproperty.time_of_death": "Heure de la mort",
+  "deathlog.deathinfoproperty.trinket_component": "Bibelots",
+  "deathlog.deathinfoproperty.trinket_component.value": [
+    "",
+    {"index": 0, "color": "aqua"},
+    " items"
+  ],
+  "key.deathlog.death_screen": "Journal des morts",
+
+  "text.deathlog.action.restore": "Restaurer",
+  "text.deathlog.action.give_item.spawn": {"text": "Appuyer Mouse 3 pour spawn", "color": "gray"},
+  "text.deathlog.action.give_item.copy_give": {"text": "Appuyer Mouse 3 pour copie /give", "color": "gray"},
+  "text.deathlog.action.delete": {"text": "Supprimer", "color": "red"},
+
+  "text.deathlog.info.time_missing": "Temps manquant",
+  "text.deathlog.info.death_message_missing": "Message de la mort manquant",
+
+  "text.deathlog.death_list_title": "DeathLog - %s total",
+  "text.deathlog.death_info_loading": "Chargement...",
+  "text.deathlog.no_info_selected_hint": "Choisir une information sur la mort\ndepuis la liste pour commencer",
+
+  "text.deathlog.config": "⇄ Config",
+  "text.config.deathlog.title": "DeathLog Configuration",
+  "text.config.deathlog.option.screenshotsEnabled": "Capture lors de la mort",
+  "text.config.deathlog.option.useLegacyDeathDetection": "Utiliser la detection de mort par heritage",
+  "text.config.deathlog.option.useLegacyDeathDetection.tooltip": [
+    "Utilise une solution moins fiable mais plus sensible\n",
+    "solution efficace de detection des morts\n",
+    "avec des traducteurs de protocole comme ViaFabric"
+  ]
+}
