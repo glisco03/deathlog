@@ -2,8 +2,6 @@ package com.glisco.deathlog;
 
 import com.glisco.deathlog.death_info.DeathInfoPropertyType;
 import com.glisco.deathlog.death_info.DeathInfoPropertyTypes;
-import com.glisco.deathlog.death_info.SpecialPropertyProvider;
-import com.glisco.deathlog.death_info.properties.TrinketComponentProperty;
 import com.glisco.deathlog.network.DeathLogPackets;
 import com.glisco.deathlog.storage.DeathLogStorage;
 import io.wispforest.owo.registration.reflect.AutoRegistryContainer;
@@ -18,8 +16,8 @@ import org.jetbrains.annotations.ApiStatus;
 public class DeathLogCommon implements ModInitializer {
 
     public static final Registry<DeathInfoPropertyType<?>> PROPERTY_TYPES = FabricRegistryBuilder
-            .createSimple(RegistryKey.<DeathInfoPropertyType<?>>ofRegistry(Identifier.of("deathlog", "property_type")))
-            .buildAndRegister();
+        .createSimple(RegistryKey.<DeathInfoPropertyType<?>>ofRegistry(Identifier.of("deathlog", "property_type")))
+        .buildAndRegister();
 
     private static DeathLogStorage currentStorage = null;
     private static boolean usePermissions;
@@ -28,10 +26,10 @@ public class DeathLogCommon implements ModInitializer {
     public void onInitialize() {
         AutoRegistryContainer.register(DeathInfoPropertyTypes.class, "deathlog", false);
 
-        if (FabricLoader.getInstance().isModLoaded("trinkets")) {
-            SpecialPropertyProvider.register(TrinketComponentProperty::apply);
-            Registry.register(PROPERTY_TYPES, Identifier.of("deathlog", "trinkets"), TrinketComponentProperty.Type.INSTANCE);
-        }
+//        if (FabricLoader.getInstance().isModLoaded("trinkets")) {
+//            SpecialPropertyProvider.register(TrinketComponentProperty::apply);
+//            Registry.register(PROPERTY_TYPES, Identifier.of("deathlog", "trinkets"), TrinketComponentProperty.Type.INSTANCE);
+//        }
 
         usePermissions = FabricLoader.getInstance().isModLoaded("fabric-permissions-api-v0");
 

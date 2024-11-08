@@ -13,7 +13,7 @@ import net.minecraft.util.Identifier;
 public abstract class DeathInfoPropertyType<P extends DeathInfoProperty> {
 
     public static final Endec<DeathInfoPropertyType<?>> ENDEC = MinecraftEndecs.IDENTIFIER.xmap(
-            identifier -> DeathLogCommon.PROPERTY_TYPES.getOrEmpty(identifier).orElse(new MissingDeathInfoProperty.Type(identifier)),
+            identifier -> DeathLogCommon.PROPERTY_TYPES.getOptionalValue(identifier).orElse(new MissingDeathInfoProperty.Type(identifier)),
             DeathInfoPropertyType::getId
     );
 

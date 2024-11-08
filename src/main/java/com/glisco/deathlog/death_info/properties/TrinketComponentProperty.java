@@ -1,28 +1,8 @@
 package com.glisco.deathlog.death_info.properties;
 
-import com.glisco.deathlog.client.DeathInfo;
-import com.glisco.deathlog.death_info.DeathInfoPropertyType;
-import com.glisco.deathlog.death_info.RestorableDeathInfoProperty;
-import dev.emi.trinkets.api.TrinketsApi;
-import io.wispforest.endec.StructEndec;
-import io.wispforest.endec.impl.StructEndecBuilder;
-import io.wispforest.owo.serialization.RegistriesAttribute;
-import io.wispforest.owo.serialization.format.nbt.NbtEndec;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.collection.DefaultedList;
-import org.jetbrains.annotations.Nullable;
+public class TrinketComponentProperty /*implements RestorableDeathInfoProperty*/ {
 
-public class TrinketComponentProperty implements RestorableDeathInfoProperty {
-
-    public static final StructEndec<TrinketComponentProperty> ENDEC = StructEndecBuilder.of(
+    /*public static final StructEndec<TrinketComponentProperty> ENDEC = StructEndecBuilder.of(
             NbtEndec.COMPOUND.xmapWithContext(
                     (ctx, nbt) -> new NbtWithRegistries(nbt, ctx.getAttributeValue(RegistriesAttribute.REGISTRIES).registryManager()),
                     (ctx, nbt) -> nbt.nbt
@@ -90,5 +70,5 @@ public class TrinketComponentProperty implements RestorableDeathInfoProperty {
         public StructEndec<TrinketComponentProperty> endec() {
             return TrinketComponentProperty.ENDEC;
         }
-    }
+    }*/
 }
